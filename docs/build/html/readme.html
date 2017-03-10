@@ -1,0 +1,166 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>README &#8212; mrilab 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="mrilab 0.0.1 documentation" href="index.html" />
+    <link rel="next" title="mrilab documentation" href="mrilab.html" />
+    <link rel="prev" title="Welcome to mrilab’s documentation!" href="index.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mrilab.html" title="mrilab documentation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to mrilab’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">mrilab 0.0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="readme">
+<h1>README<a class="headerlink" href="#readme" title="Permalink to this headline">¶</a></h1>
+<p><strong>Machine Learning Project 1</strong></p>
+<p>Group: <strong>mrilab</strong></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">author:</th><td class="field-body"><a class="reference external" href="mailto:alex&#46;mueller&#37;&#52;&#48;pharma&#46;ethz&#46;ch">Alex Müller</a>, <a class="reference external" href="mailto:erik&#46;gawehn&#37;&#52;&#48;pharma&#46;ethz&#46;ch">Erik Gawehn</a></td>
+</tr>
+</tbody>
+</table>
+<p>This Python package can be used for predicting patient age from given MRI images. The module <code class="xref py py-mod docutils literal"><span class="pre">brain</span></code> contains
+the class <code class="xref py py-class docutils literal"><span class="pre">MultiBrain</span></code> which reads Niftii MRI images into one single object, stacking the individual brains in
+the 4th dimension. The module <code class="xref py py-mod docutils literal"><span class="pre">preprocessing</span></code> adds some simplification to read file names, modules
+<code class="xref py py-mod docutils literal"><span class="pre">convolve</span></code> and <code class="xref py py-mod docutils literal"><span class="pre">edge</span></code> can be used for image processing. The module <code class="xref py py-mod docutils literal"><span class="pre">gridsearch</span></code> gives the
+possibility to search the best parameters for a specified model.</p>
+<div class="section" id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline">¶</a></h2>
+<p>The training and prediction workflow is located in <code class="file docutils literal"><span class="pre">predict_final.py</span></code>.</p>
+<p>A brief explanation of the steps in the applied workflow:</p>
+<ol class="arabic simple">
+<li>loading data from Nifti image files and combine them into one <code class="xref py py-class docutils literal"><span class="pre">MultiBrain</span></code> instance</li>
+<li>averaging over 2x2x2 voxel boxes for 8-fold dimensionality reduction</li>
+<li>calculating the correlation of every voxel to the age of the brain</li>
+<li>picking only voxels that have a higher absolute correlation than mean + 2 * std</li>
+</ol>
+<p>5) training of a pipeline with:
+5.1) Standard scaler (zero mean and unit variance)
+5.2) Linear support vector regressor with C=2. regularization
+6) predicting ages of test images with trained pipeline</p>
+</div>
+<div class="section" id="reasoning">
+<h2>Reasoning<a class="headerlink" href="#reasoning" title="Permalink to this headline">¶</a></h2>
+<p>The main objective of this task turned out to be dimensionality reduction while keeping the most informative voxels. We
+tackled this problem by smoothing the images through averaging over small boxes of 8 voxels first, followed by
+calculation of the correlation of these averaged resulting voxels with the brain age. We were then able to select the
+most correlated brain voxels for training with an arbitrary threshold of correlations over <code class="docutils literal"><span class="pre">mean</span> <span class="pre">+</span> <span class="pre">2</span> <span class="pre">*</span> <span class="pre">std</span></code>. These
+voxels were then standard scaled to zero mean and unit variance before being fed to a linear Support Vector Regressor
+(SVR). The C parameter of the SVR was obtained through a grid search workflow in <code class="file docutils literal"><span class="pre">gridsearch.py</span></code>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">README</a><ul>
+<li><a class="reference internal" href="#workflow">Workflow</a></li>
+<li><a class="reference internal" href="#reasoning">Reasoning</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to mrilab&#8217;s documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mrilab.html"
+                        title="next chapter">mrilab documentation</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/readme.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mrilab.html" title="mrilab documentation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to mrilab’s documentation!"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">mrilab 0.0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2016, Alex Mueller, Erik Gawehn.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.8.
+    </div>
+  </body>
+</html>

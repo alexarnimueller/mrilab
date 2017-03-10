@@ -1,0 +1,317 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>mrilab documentation &#8212; mrilab 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="mrilab 0.0.1 documentation" href="index.html" />
+    <link rel="prev" title="README" href="readme.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="readme.html" title="README"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">mrilab 0.0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="mrilab-documentation">
+<h1>mrilab documentation<a class="headerlink" href="#mrilab-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="mrilab-brain">
+<h2>mrilab.brain<a class="headerlink" href="#mrilab-brain" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-mrilab.preprocessing">
+<span id="mrilab-preprocessing"></span><h2>mrilab.preprocessing<a class="headerlink" href="#module-mrilab.preprocessing" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-ml16.preprocessing"></span><dl class="function">
+<dt id="mrilab.preprocessing.dir_to_filelist">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">dir_to_filelist</code><span class="sig-paren">(</span><em>directory</em>, <em>ending='.nii'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#dir_to_filelist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.dir_to_filelist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to read all file names with a given ending from a directory into a list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>directory</strong> &#8211; {str} path of directory from which files should be read</li>
+<li><strong>ending</strong> &#8211; {str} file ending to consider</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">array of file names in this directory</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.fnames_to_targets">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">fnames_to_targets</code><span class="sig-paren">(</span><em>directory</em>, <em>extension='.nii'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#fnames_to_targets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.fnames_to_targets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to read all filenames from the given directory and connect them in a dictionary to the corresponding
+target values, which must be stored in a file called &#8216;targets.csv&#8217; and located in the same directory. The file
+names must have the format &#8220;&lt;something&gt;_ID.&lt;ending&gt;&#8221; with ID corresponding to the row ID in the targets.csv file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>directory</strong> &#8211; {str} path of directory from which files should be read</li>
+<li><strong>extension</strong> &#8211; {str} file name extension to consider</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">a dictionary with file names as keys and targets as values</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.get_img_matrix">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">get_img_matrix</code><span class="sig-paren">(</span><em>filename</em>, <em>slices=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#get_img_matrix"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.get_img_matrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to read a nifti img into numpy pixel vectors</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>filename</strong> &#8211; {str} file name of the MRI img to read</li>
+<li><strong>slices</strong> &#8211; {int} default: <code class="docutils literal"><span class="pre">None</span></code> (load all); whether the function should only load <code class="docutils literal"><span class="pre">slices</span></code> slices of
+the nifti image.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">numpy array with all slices as pixel matrices</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.image_to_vector">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">image_to_vector</code><span class="sig-paren">(</span><em>img</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#image_to_vector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.image_to_vector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to flatten an img into a vector.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>img</strong> &#8211; {img array} image to be reshaped into array</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">{np.array} vectorized image</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.slice_mri">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">slice_mri</code><span class="sig-paren">(</span><em>img</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#slice_mri"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.slice_mri" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to get all horizontal slices of a nifit img, flatten them into vectors and store them in a matrix.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>img</strong> &#8211; {img matrix} nifti img as 3D pixel matrix</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">{np.array} matrix with pixel vectors of every slice</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.files_to_data">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">files_to_data</code><span class="sig-paren">(</span><em>file_dict</em>, <em>directory</em>, <em>num=None</em>, <em>slices=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#files_to_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.files_to_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to generate a data and target array from a dictionary containing file names (keys) and target
+values (values).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>file_dict</strong> &#8211; {dict} dictionary containing file names as keys and corresponding target values as values.</li>
+<li><strong>directory</strong> &#8211; {str} directory from which files in <code class="docutils literal"><span class="pre">file_dict</span></code> should be loaded.</li>
+<li><strong>num</strong> &#8211; {int} how many files should be read (random order, meant for testing purposes).</li>
+<li><strong>slices</strong> &#8211; {int} default: <code class="docutils literal"><span class="pre">None</span></code> (load all); whether the function should only load <code class="docutils literal"><span class="pre">slices</span></code> slices of the nifti
+image.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">two vectors: data array and target array.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.get_standard_brain">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">get_standard_brain</code><span class="sig-paren">(</span><em>x</em>, <em>num=278</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#get_standard_brain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.get_standard_brain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate every slice over all brains and return the &#8220;standard deviation brain&#8221; with stdevs as pixel values</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> &#8211; {numpy.array} array with every slice as linear vector of pixels, original shape (176,208)</li>
+<li><strong>num</strong> &#8211; {int} number of brains in x_train</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Brain array containing stdev values of all input brains in x_train and an array containing the important
+pixel indices for each slice.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="mrilab.preprocessing.reduce_data_by_indexbrain">
+<code class="descclassname">mrilab.preprocessing.</code><code class="descname">reduce_data_by_indexbrain</code><span class="sig-paren">(</span><em>x</em>, <em>index_brain</em>, <em>y=None</em>, <em>num=278</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/preprocessing.html#reduce_data_by_indexbrain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.preprocessing.reduce_data_by_indexbrain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract the pixels most different in all brains (given in &#8220;indexbrain&#8221;) from every slice of x_train.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> &#8211; {numpy.array} training data to reduce</li>
+<li><strong>y</strong> &#8211; {numpy.array} target values for training data</li>
+<li><strong>index_brain</strong> &#8211; {numpy.array} output from <code class="xref py py-func docutils literal"><span class="pre">get_standard_brain()</span></code> with <em>important</em> pixel indices</li>
+<li><strong>num</strong> &#8211; {int} number of brains in x_train (each brain has 176 slices)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">reduced data x to important pixels.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-mrilab.convolve">
+<span id="mrilab-convolve"></span><h2>mrilab.convolve<a class="headerlink" href="#module-mrilab.convolve" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-ml16.convolve"></span><dl class="function">
+<dt id="mrilab.convolve.convolve_image">
+<code class="descclassname">mrilab.convolve.</code><code class="descname">convolve_image</code><span class="sig-paren">(</span><em>img</em>, <em>filters</em>, <em>plot=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mrilab/convolve.html#convolve_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#mrilab.convolve.convolve_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to convolve an image with given filters and return the convoluted image.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>img</strong> &#8211; {numpy.array} image pixel matrix to convolve</li>
+<li><strong>filters</strong> &#8211; {list} list of filter matrices to use for convolution</li>
+<li><strong>plot</strong> &#8211; {bool} whether to plot the resulting convoluted images</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">{numpy.array} convoluted image</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">mrilab documentation</a><ul>
+<li><a class="reference internal" href="#mrilab-brain">mrilab.brain</a></li>
+<li><a class="reference internal" href="#module-mrilab.preprocessing">mrilab.preprocessing</a></li>
+<li><a class="reference internal" href="#module-mrilab.convolve">mrilab.convolve</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="readme.html"
+                        title="previous chapter">README</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/mrilab.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="readme.html" title="README"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">mrilab 0.0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2016, Alex Mueller, Erik Gawehn.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.8.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,590 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>mrilab.brain &mdash; mrilab 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="mrilab 0.0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">mrilab 0.0.1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for mrilab.brain</h1><div class="highlight"><pre>
+<span class="c1"># -*-coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">.. module:: ml16.brain</span>
+
+<span class="sd">.. moduleauthor:: Alex Müller, Erik Gawehn</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Pool</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">exists</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">cPickle</span> <span class="kn">as</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">nibabel</span> <span class="kn">import</span> <span class="n">Nifti1Image</span>
+<span class="kn">from</span> <span class="nn">nilearn.image</span> <span class="kn">import</span> <span class="n">load_img</span><span class="p">,</span> <span class="n">smooth_img</span><span class="p">,</span> <span class="n">mean_img</span><span class="p">,</span> <span class="n">index_img</span>
+<span class="kn">from</span> <span class="nn">nilearn.masking</span> <span class="kn">import</span> <span class="n">apply_mask</span><span class="p">,</span> <span class="n">compute_epi_mask</span>
+<span class="kn">from</span> <span class="nn">nilearn.masking</span> <span class="kn">import</span> <span class="n">compute_background_mask</span>
+<span class="kn">from</span> <span class="nn">nilearn.plotting</span> <span class="kn">import</span> <span class="n">plot_roi</span><span class="p">,</span> <span class="n">plot_img</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span> <span class="nn">skimage.draw</span> <span class="kn">import</span> <span class="n">ellipsoid</span>
+<span class="kn">from</span> <span class="nn">skimage.transform</span> <span class="kn">import</span> <span class="n">downscale_local_mean</span>
+<span class="kn">from</span> <span class="nn">mrilab.edge</span> <span class="kn">import</span> <span class="n">sobel</span><span class="p">,</span> <span class="n">prewitt</span><span class="p">,</span> <span class="n">plot_filter</span>
+
+
+<span class="k">def</span> <span class="nf">pickling</span><span class="p">(</span><span class="n">traindataset</span><span class="p">,</span><span class="n">trainlabels</span><span class="p">,</span> <span class="n">testdataset</span><span class="p">,</span> <span class="n">testlabels</span><span class="p">,</span> <span class="n">pickle_file</span><span class="p">,</span><span class="n">force</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>  
+    <span class="k">if</span> <span class="n">exists</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+        <span class="n">traindataset</span><span class="p">,</span> <span class="n">trainlabels</span><span class="p">,</span> <span class="n">testdataset</span><span class="p">,</span> <span class="n">testlabels</span> <span class="o">=</span> <span class="n">openpickled</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s1">&#39;traindata shape: {}  trainlabels length: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">traindataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trainlabels</span><span class="p">)))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s1">&#39;testdata shape {}  testlabels length: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">testdataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">testlabels</span><span class="p">)))</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+          <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span>
+          <span class="n">save</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;testdataset&#39;</span><span class="p">:</span> <span class="n">testdataset</span><span class="p">,</span>
+            <span class="s1">&#39;testlabels&#39;</span><span class="p">:</span> <span class="n">testlabels</span><span class="p">,</span>
+            <span class="s1">&#39;traindataset&#39;</span><span class="p">:</span> <span class="n">traindataset</span><span class="p">,</span>
+            <span class="s1">&#39;trainlabels&#39;</span><span class="p">:</span> <span class="n">trainlabels</span>
+            <span class="p">}</span>
+          <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
+          <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Unable to save data to {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">traindataset</span><span class="p">,</span> <span class="n">trainlabels</span><span class="p">,</span> <span class="n">testdataset</span><span class="p">,</span> <span class="n">testlabels</span>     
+    
+    
+<span class="k">def</span> <span class="nf">openpickled</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">):</span>   
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+      <span class="n">save</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+      <span class="n">testdataset</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;testdataset&#39;</span><span class="p">]</span>
+      <span class="n">testlabels</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;testlabels&#39;</span><span class="p">]</span>
+      <span class="n">traindataset</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;traindataset&#39;</span><span class="p">]</span>
+      <span class="n">trainlabels</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;trainlabels&#39;</span><span class="p">]</span>
+      <span class="k">del</span> <span class="n">save</span>  <span class="c1"># hint to help gc free up memory</span>
+      <span class="k">return</span> <span class="n">traindataset</span><span class="p">,</span> <span class="n">trainlabels</span><span class="p">,</span> <span class="n">testdataset</span><span class="p">,</span> <span class="n">testlabels</span>
+                
+      
+<span class="k">def</span> <span class="nf">_cov_comp</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Private function for parallel covariance calculation&quot;&quot;&quot;</span>
+    <span class="n">covmat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">covmat</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        
+
+<span class="k">def</span> <span class="nf">_cor_comp</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Private function for parallel correlation calculation&quot;&quot;&quot;</span>
+    <span class="n">cormat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cormat</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_rescale</span><span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">img</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Private function for parallel rescaling&quot;&quot;&quot;</span>
+    <span class="n">img</span> <span class="o">*=</span> <span class="nb">float</span><span class="p">(</span><span class="n">bins</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">img</span>
+
+
+<span class="k">def</span> <span class="nf">_smooth</span><span class="p">(</span><span class="n">fwhm</span><span class="p">,</span> <span class="n">img</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Private function for parallel image smoothing&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">smooth_img</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">fwhm</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MultiBrain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain">[docs]</a><span class="k">class</span> <span class="nc">MultiBrain</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for combining many brain MRI images into data and target arrays for training a model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="MultiBrain.__init__"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.__init__">[docs]</a>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename_dict</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">sparse</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param filename_dict: {dict} Dictionary containing file names as keys and ages as values</span>
+<span class="sd">        :param directory: {str} path of the folder containing all files given in ``filename_dict``</span>
+<span class="sd">        :param num: {int} number of files to select (for test purposes)</span>
+<span class="sd">        :param sort: {bool} whether the images should be selected according to their location in the read dictionary</span>
+<span class="sd">            (``False``) or sorted according to the sorted target values (``True``).</span>
+<span class="sd">        :param sparse: {bool} whether only one image per target value should be loaded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sparse</span><span class="p">:</span>  <span class="c1"># then only take one example per value</span>
+            <span class="n">l_sorted</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">filename_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l_sorted</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>  <span class="c1"># if value not yet present in l_sorted, add the pair</span>
+                    <span class="n">l_sorted</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="k">if</span> <span class="n">sort</span><span class="p">:</span>
+                <span class="n">l_sorted</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">l_sorted</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])[:</span><span class="n">num</span><span class="p">]</span>  <span class="c1"># sorted list according to target values</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">l_sorted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">l_sorted</span><span class="o">.</span><span class="n">items</span><span class="p">()),</span> <span class="n">size</span><span class="o">=</span><span class="n">num</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sort</span><span class="p">:</span>
+            <span class="n">l_sorted</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">filename_dict</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])[:</span><span class="n">num</span><span class="p">]</span>  <span class="c1"># sorted list according to target values</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l_sorted</span> <span class="o">=</span> <span class="n">filename_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()[:</span><span class="n">num</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">std</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cov</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cor</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vox</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_smoothed</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">directory</span> <span class="o">=</span> <span class="n">directory</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">l_sorted</span><span class="p">]</span>  <span class="c1"># ascending target values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">l_sorted</span><span class="p">]</span>  <span class="c1"># sorted file names according to target values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filenames</span> <span class="o">=</span> <span class="p">[</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">]</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.combine_brains"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.combine_brains">[docs]</a>    <span class="k">def</span> <span class="nf">combine_brains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slices</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to combine all brains in the loaded filename dictionary into a big data object with the individual</span>
+<span class="sd">        brain data in the 4th dimension.</span>
+<span class="sd">        </span>
+<span class="sd">        :param slices: {int} number of slices to load from each brain (testing purpose). The average from ±1 slice</span>
+<span class="sd">            is loaded for every slice.</span>
+<span class="sd">        :return: data of all files loaded into the attribute :py:attr:`data`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;loading </span><span class="si">%i</span><span class="s2"> files...&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">load_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filenames</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">slices</span><span class="p">:</span>
+            <span class="n">step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">slices</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">newshape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">newshape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">slices</span>
+            <span class="n">imgarr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">newshape</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">slices</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">imgarr</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">step</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):(</span><span class="n">i</span> <span class="o">*</span> <span class="n">step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">imgarr</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">slices</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filenames</span><span class="p">))),</span>
+                                   <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span> <span class="s2">&quot;all files loaded!&quot;</span></div>
+
+<div class="viewcode-block" id="MultiBrain.smooth"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.smooth">[docs]</a>    <span class="k">def</span> <span class="nf">smooth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fwhm</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">numproc</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to smooth the brains with a Gaussian filter.</span>
+
+<span class="sd">        :param fwhm: {number} Smoothing strength, as a Full-Width at Half Maximum, in millimeters.</span>
+<span class="sd">        :param numproc: {int} number of parallel processes applied to smooth the brain.</span>
+<span class="sd">        :return: smoothed image in the attribute :py:attr:`img`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="n">numproc</span><span class="p">)</span>  <span class="c1"># number of parallel processes</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">load_img</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">_smooth</span><span class="p">,</span> <span class="n">fwhm</span><span class="p">),</span> <span class="p">[</span><span class="n">index_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span>
+                                                                                                        <span class="o">-</span><span class="mi">1</span><span class="p">])]))</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_smoothed</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Smoothed!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.background_mask"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.background_mask">[docs]</a>    <span class="k">def</span> <span class="nf">background_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">calculate</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="nb">apply</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the average background mask for all given brains.</span>
+<span class="sd">        </span>
+<span class="sd">        :param calculate: {bool} do calculate or just use other options.</span>
+<span class="sd">        :param apply: {bool} if True, the mask is directly applied to cut down the brains in :py:attr:`data` and</span>
+<span class="sd">            reshape them into vectors</span>
+<span class="sd">        :param plot: {bool} whether the generated mask should be visualized in a plot. The first image in 4th</span>
+<span class="sd">            dimension is shown.</span>
+<span class="sd">        :return: mask matrix in the attribute :py:attr:`mask` and if `apply=True` data vectors in :py:attr:`data`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">calculate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">compute_background_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">apply</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_roi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Background mask computed!&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiBrain.epi_mask"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.epi_mask">[docs]</a>    <span class="k">def</span> <span class="nf">epi_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">calculate</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="nb">apply</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the average background mask for all given brains.</span>
+
+<span class="sd">        :param calculate: {bool} do calculate or just use other options.</span>
+<span class="sd">        :param apply: {bool} if True, the mask is directly applied to cut down the brains in :py:attr:`data` and</span>
+<span class="sd">            reshape them into vectors</span>
+<span class="sd">        :param plot: {bool} whether the generated mask should be visualized in a plot. The first image in 4th</span>
+<span class="sd">            dimension is shown.</span>
+<span class="sd">        :return: mask matrix in the attribute :py:attr:`mask` and if `apply=True` data vectors in :py:attr:`data`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">calculate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">compute_epi_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">apply</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_roi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;EPI mask computed!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.mean_brain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.mean_brain">[docs]</a>    <span class="k">def</span> <span class="nf">mean_brain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">std</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to generate an average brain from all brain volumes in the 4th dimension.</span>
+<span class="sd">        </span>
+<span class="sd">        :param std: {bool} whether the standard deviation of all brain volumes should be computed</span>
+<span class="sd">        :param plot: {bool} whether the generated brains should be visualized</span>
+<span class="sd">        :return: depending on the given options an averaged brain and / or standard-deviation-brain as numpy.array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="n">mean_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Averaged Brain&#39;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Mean brain computed!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">std</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">std_brain</span><span class="p">(</span><span class="n">plot</span><span class="o">=</span><span class="n">plot</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.vox_brain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.vox_brain">[docs]</a>    <span class="k">def</span> <span class="nf">vox_brain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaletuple</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to downsample a brain by averaging over a specified number of voxels</span>
+<span class="sd">        </span>
+<span class="sd">        :param scaletuple: {tuple} size of voxel box to average over</span>
+<span class="sd">        :param plot: {bool} whether the generated brains should be visualized</span>
+<span class="sd">        :return: the correlation brain as 3D Nifti1Image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">tup</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">scaletuple</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tup</span> <span class="o">=</span> <span class="n">scaletuple</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">downscale_local_mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">get_data</span><span class="p">(),</span> <span class="n">tup</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_to_img</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_img</span><span class="p">(</span><span class="n">index_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Voxel brain&quot;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Vox brain computed!</span><span class="se">\n\t</span><span class="s2">New shape: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></div>
+        
+<div class="viewcode-block" id="MultiBrain.std_brain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.std_brain">[docs]</a>    <span class="k">def</span> <span class="nf">std_brain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to generate an brain of standard deviations from all brain volumes in the 4th dimension.</span>
+
+<span class="sd">        :param plot: {bool} whether the generated brains should be visualized</span>
+<span class="sd">        :param mask: {bool} whether the mask in the attribute :py:attr:`mask` should be applied to the image before.</span>
+<span class="sd">        :return: depending on the given options an averaged brain and / or standard-deviation-brain as numpy.array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">std</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">vectorized</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Standard Deviation Brain&#39;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">vectorized</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Std brain computed!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.cor_brain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.cor_brain">[docs]</a>    <span class="k">def</span> <span class="nf">cor_brain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numproc</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to generate an brain of correlations between all brain volumes in the 4th dimension and their labels.</span>
+<span class="sd">        </span>
+<span class="sd">        :param numproc: {int} number of parallel processes applied to calculate the covbrain.</span>
+<span class="sd">        :param plot: {bool} whether the generated brains should be visualized</span>
+<span class="sd">        :param mask: {bool} whether the mask in the attribute :py:attr:`mask` should be applied to the image before.</span>
+<span class="sd">        :return: the correlation brain as 3D Nifti1Image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>  <span class="c1"># ignore RuntimeWarning</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="n">numproc</span><span class="p">)</span>  <span class="c1"># number of parallel processes</span>
+                <span class="n">corval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">_cor_comp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">),</span> <span class="n">vectorized</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="n">corval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">corval</span><span class="p">)</span>  <span class="c1"># replace nan with 0</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cor</span> <span class="o">=</span> <span class="n">corval</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cor</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">corval</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cor</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">plot</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="n">plot_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cor</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Correlation brain&quot;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">vectorized</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Correlation brain computed!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.cov_brain"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.cov_brain">[docs]</a>    <span class="k">def</span> <span class="nf">cov_brain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numproc</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to generate an brain of covariances between all brain volumes in the 4th dimension and their labels.</span>
+<span class="sd">        </span>
+<span class="sd">        :param numproc: {int} number of parallel processes applied to calculate the covbrain.</span>
+<span class="sd">        :param plot: {bool} whether the generated brains should be visualized</span>
+<span class="sd">        :param mask: {bool} whether the mask in the attribute :py:attr:`mask` should be applied to the image before.</span>
+<span class="sd">        :return: the covariance brain as 3D Nifti1Image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="n">numproc</span><span class="p">)</span>  <span class="c1"># number of parallel processes</span>
+            <span class="n">covval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">_cov_comp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">),</span> <span class="n">vectorized</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="n">covval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">covval</span><span class="p">)</span>  <span class="c1"># replace nan with 0</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cov</span> <span class="o">=</span> <span class="n">covval</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cov</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">covval</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cov</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">plot</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="n">plot_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cov</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Covariance brain&quot;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">vectorized</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Covariance brain computed!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.apply_mask"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.apply_mask">[docs]</a>    <span class="k">def</span> <span class="nf">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">on_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to apply a precomputed mask in the attribute :py:attr:`mask` to the image.</span>
+<span class="sd">        </span>
+<span class="sd">        :param mask: {numpy.matrix} the mask to apply on the image. If ``None``, the mask in the attribute</span>
+<span class="sd">            :py:attr:`mask` is used (if pre-calculated, e.g. with :py:func:`background_mask`)</span>
+<span class="sd">        :param on_data: {bool} whether the mask should be applied on the data in the attribute :py:attr:`data`.</span>
+<span class="sd">        :return: data vectors in :py:attr:`data`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">on_data</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">!=</span> <span class="n">Nifti1Image</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span> <span class="o">!=</span> <span class="n">Nifti1Image</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Mask applied!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.data_to_img"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.data_to_img">[docs]</a>    <span class="k">def</span> <span class="nf">data_to_img</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to transform the pixel arrays stored in the attribute :py:attr:`data` into a Nifti image object</span>
+<span class="sd">        and overwrite the existing one in the attribute :py:attr:`img`.</span>
+<span class="sd">        </span>
+<span class="sd">        :return: updated attribute :py:attr:`img` and cleared :py:attr:`data`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span></div>
+        
+<div class="viewcode-block" id="MultiBrain.sobel_filter"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.sobel_filter">[docs]</a>    <span class="k">def</span> <span class="nf">sobel_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method for applying a sobel filter to detect edges.</span>
+<span class="sd">        </span>
+<span class="sd">        :param plot: {bool} if ``True``, an some example results are plotted</span>
+<span class="sd">        :param overwrite: {bool} whether the original image in the attribute :py:attr:`img` should be overwritten.</span>
+<span class="sd">        :return: Detected edges in the attribute :py:attr:`data`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">sobel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_filter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Filtered!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.prewitt_filter"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.prewitt_filter">[docs]</a>    <span class="k">def</span> <span class="nf">prewitt_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method for applying a prewitt filter to detect edges.</span>
+
+<span class="sd">        :param plot: {bool} if ``True``, an some example results are plotted</span>
+<span class="sd">        :param overwrite: {bool} whether the original image in the attribute :py:attr:`img` should be overwritten.</span>
+<span class="sd">        :return: Detected edges in the attribute :py:attr:`data`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">prewitt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_filter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Filtered!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.rescale"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.rescale">[docs]</a>    <span class="k">def</span> <span class="nf">rescale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nbins</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">numproc</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to convert the brain images from MRI signals to a given pixel value scale</span>
+<span class="sd">        </span>
+<span class="sd">        :param nbins: {int} integer representing the number of bins generated.</span>
+<span class="sd">        :param numproc: {int} number of parallel processes applied to rescale.</span>
+<span class="sd">        :param overwrite: {bool} whether the original image in the attribute :py:attr:`img` should be overwritten.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="n">numproc</span><span class="p">)</span>  <span class="c1"># number of parallel processes</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">_rescale</span><span class="p">,</span> <span class="n">nbins</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">dataobj</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                    <span class="s1">&#39;float64&#39;</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Rescaled!&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiBrain.standardscale"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.standardscale">[docs]</a>    <span class="k">def</span> <span class="nf">standardscale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to standard scale all pixel values to zero mean and 1 standard deviation.</span>
+
+<span class="sd">        :param overwrite: {bool} whether the original image in the attribute :py:attr:`img` should be overwritten.</span>
+<span class="sd">        :param fit: {bool} if ``Ture``, a new standard scaler is generated and fitted, if ``False``, the scaler in the</span>
+<span class="sd">            attribute :py:attr:`scaler` is used for scaling</span>
+<span class="sd">        :param data: {bool} whether to take the voxels in the attribute :py:attr:`data` as input.</span>
+<span class="sd">        :return: scaled voxels in :py:attr:`data` or :py:attr:`img` (if ``overwrite=True``)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">vectorized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vectorized</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">fit</span><span class="p">:</span>  <span class="c1"># instantiate new scaler, fit and transform</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">vectorized</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># take trained scaler in self.scaler and transform</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">vectorized</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">uncache</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Rescaled!&quot;</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.cube_mask"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.cube_mask">[docs]</a>    <span class="k">def</span> <span class="nf">cube_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x1</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">x2</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">y1</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">y2</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">z1</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">z2</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="nb">apply</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to cut out a cube from the center of the brain.</span>
+<span class="sd">        </span>
+<span class="sd">        :param x1: {int} start range x dimension</span>
+<span class="sd">        :param x2: {int} stop range x dimension</span>
+<span class="sd">        :param y1: {int} start range y dimension</span>
+<span class="sd">        :param y2: {int} stop range y dimension</span>
+<span class="sd">        :param z1: {int} start range z dimension</span>
+<span class="sd">        :param z2: {int} stop range z dimension</span>
+<span class="sd">        :param apply: {bool} if ``True``, the mask is directly applied to cut down the brains in :py:attr:`data` and</span>
+<span class="sd">            reshape them into vectors</span>
+<span class="sd">        :param plot: {bool} whether the generated mask should be visualized in a plot. A random image is shown.</span>
+<span class="sd">        :return: Mask in the attribute :py:attr:`mask` and cut out cube in :py:attr:`data` if ``apply=True``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="n">x1</span><span class="p">:</span><span class="n">x2</span><span class="p">,</span> <span class="n">y1</span><span class="p">:</span><span class="n">y2</span><span class="p">,</span> <span class="n">z1</span><span class="p">:</span><span class="n">z2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        
+        <span class="k">if</span> <span class="nb">apply</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_roi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">index_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span></div>
+    
+<div class="viewcode-block" id="MultiBrain.ellipsoid_mask"><a class="viewcode-back" href="../../mrilab.html#mrilab.brain.MultiBrain.ellipsoid_mask">[docs]</a>    <span class="k">def</span> <span class="nf">ellipsoid_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="nb">apply</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to generate an ellipsoid to mask voxels in the brain.</span>
+<span class="sd">        </span>
+<span class="sd">        :param a: {int} Length of semimajor axis aligned with x-axis.</span>
+<span class="sd">        :param b: {int} Length of semimajor axis aligned with y-axis.</span>
+<span class="sd">        :param c: {int} Length of semimajor axis aligned with z-axis.</span>
+<span class="sd">        :param apply: {bool} if ``True``, the mask is directly applied to cut down the brains in :py:attr:`data` and</span>
+<span class="sd">            reshape them into vectors</span>
+<span class="sd">        :param plot: {bool} whether the generated mask should be visualized in a plot. A random image is shown.</span>
+<span class="sd">        :return: Mask in the attribute :py:attr:`mask`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ellps</span> <span class="o">=</span> <span class="n">ellipsoid</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+        <span class="c1"># shapes</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">ellps</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
+        
+        <span class="c1"># get spacing to walls for centering the ellipsoid in the middle of the brain</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">q</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">q</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">c</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">e</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">e</span>
+    
+        <span class="n">ellps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">ellps</span><span class="p">,</span> <span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">f</span><span class="p">)),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">constant_values</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;int&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">Nifti1Image</span><span class="p">(</span><span class="n">ellps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="nb">apply</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">plot_roi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">index_img</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">mrilab 0.0.1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, Alex Mueller, Erik Gawehn.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.5.
+    </div>
+  </body>
+</html>
